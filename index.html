@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sk1 live reproduction tool</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 10px;
+            background-color: #333333;
+            color: #f0f0f0;
+        }
+        
+        h1, h2, h3 {
+            color: #ffffff;
+            text-align: center;
+            text-transform: uppercase;
+            border-bottom: 1px dashed #888888;
+            padding-bottom: 5px;
+        }
+        
+        .container {
+            background-color: #222222;
+            border: 2px solid #555555;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        button {
+            background-color: #555555;
+            color: white;
+            border: 1px solid #888888;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background-color: #666666;
+        }
+        
+        button.active {
+            background-color: #999999;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 150px;
+            height: 5px;
+            background: #888888;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #ffffff;
+            cursor: pointer;
+        }
+        
+        .beat-display {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        
+        .beat {
+            width: 25px;
+            height: 25px;
+            background-color: #444444;
+            border: 1px solid #666666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .beat.active {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        
+        .file-input {
+            background-color: #444444;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px dashed #666666;
+        }
+        
+        .file-list {
+            margin: 10px 0;
+            padding: 0;
+            list-style-type: none;
+        }
+        
+        .file-item {
+            padding: 5px;
+            margin: 2px 0;
+            background-color: #444444;
+            border: 1px solid #666666;
+            cursor: pointer;
+        }
+        
+        .file-item.selected {
+            background-color: #666666;
+            border-color: #ffffff;
+        }
+        
+        .instructions {
+            background-color: #444444;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .status-bar {
+            border-top: 1px dashed #888888;
+            margin-top: 10px;
+            padding-top: 5px;
+            font-size: 12px;
+            color: #cccccc;
+        }
+        
+        label {
+            display: inline-block;
+            min-width: 80px;
+        }
+        
+        .bpm-value, .volume-value {
+            display: inline-block;
+            width: 30px;
+            text-align: right;
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        fieldset {
+            border: 1px solid #666666;
+            margin-bottom: 10px;
+        }
+        
+        legend {
+            padding: 0 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>sk1 live reproduction tool</h1>
+    
+    <div class="container">
+        <fieldset>
+            <legend>リズムコントロール</legend>
+            <div class="controls">
+                <button id="start-stop">START</button>
+                
+                <div>
+                    <label for="bpm">BPM:</label>
+                    <input type="range" id="bpm" min="60" max="200" value="120">
+                    <span id="bpm-value" class="bpm-value">120</span>
+                </div>
+                
+                <div class="volume-control">
+                    <label for="volume">VOL:</label>
+                    <input type="range" id="volume" min="0" max="1" step="0.1" value="0.5">
+                    <span id="volume-value" class="volume-value">0.5</span>
+                </div>
+            </div>
+            
+            <div class="beat-display">
+                <div class="beat" data-beat="1">1</div>
+                <div class="beat" data-beat="2">2</div>
+                <div class="beat" data-beat="3">3</div>
+                <div class="beat" data-beat="4">4</div>
+            </div>
+        </fieldset>
+    </div>
+    
+    <div class="container">
+        <fieldset>
+            <legend>オーディオプレーヤー</legend>
+            
+            <div class="file-input">
+                <input type="file" id="file-upload" accept="audio/mp3, audio/mpeg" multiple>
+                <div class="status-bar">選択したファイル: <span id="file-count">0</span></div>
+            </div>
+            
+            <ul id="file-list" class="file-list">
+                <li class="file-item">アップロードされたファイルはここに表示されます</li>
+            </ul>
+            
+            <div class="controls">
+                <button id="play-pause">PLAY</button>
+                <div class="volume-control">
+                    <label for="audio-volume">VOL:</label>
+                    <input type="range" id="audio-volume" min="0" max="1" step="0.1" value="0.7">
+                    <span id="audio-volume-value" class="volume-value">0.7</span>
+                </div>
+            </div>
+            
+            <div class="status-bar">
+                現在の曲: <span id="current-audio">なし</span>
+            </div>
+        </fieldset>
+    </div>
+    
+    <div class="instructions">
+        <h3>使用方法</h3>
+        <p>1. 「ファイルを選択」からMP3ファイルをアップロード</p>
+        <p>2. リストからファイルを選択、または[SPACE]キーで切替</p>
+        <p>3. BPMスライダーでテンポ調整（60-200 BPM）</p>
+        <p>4. [START]ボタンでリズムマシン開始・停止</p>
+        <p>※音声はプリロードされるので切替時のラグなし</p>
+    </div>
+
+    <script>
+        // オーディオコンテキストの作成
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        
+        // リズムマシン関連の変数
+        let isPlaying = false;
+        let currentBeat = 0;
+        let bpm = 120;
+        let nextNoteTime = 0;
+        let timerID;
+        let volume = 0.5;
+        
+        // 音声ファイル再生関連の変数
+        let audioFiles = [];
+        let audioBuffers = [];
+        let currentAudioIndex = -1;
+        let audioSource = null;
+        let audioGainNode = null;
+        let isAudioPlaying = false;
+        let audioVolume = 0.7;
+        
+        // UI要素の取得
+        const startStopBtn = document.getElementById('start-stop');
+        const bpmSlider = document.getElementById('bpm');
+        const bpmValue = document.getElementById('bpm-value');
+        const volumeSlider = document.getElementById('volume');
+        const volumeValue = document.getElementById('volume-value');
+        const beats = document.querySelectorAll('.beat');
+        const playPauseBtn = document.getElementById('play-pause');
+        const audioVolumeSlider = document.getElementById('audio-volume');
+        const audioVolumeValue = document.getElementById('audio-volume-value');
+        const currentAudioDisplay = document.getElementById('current-audio');
+        const fileUpload = document.getElementById('file-upload');
+        const fileList = document.getElementById('file-list');
+        const fileCount = document.getElementById('file-count');
+        
+        // ファイルアップロードの処理
+        fileUpload.addEventListener('change', async function(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            
+            // UIの更新
+            fileCount.textContent = files.length;
+            fileList.innerHTML = '';
+            
+            // ファイル配列とバッファをリセット
+            audioFiles = [];
+            audioBuffers = [];
+            currentAudioIndex = -1;
+            currentAudioDisplay.textContent = "読み込み中...";
+            
+            // 各ファイルを処理
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type.includes('audio')) {
+                    const fileItem = document.createElement('li');
+                    fileItem.className = 'file-item';
+                    fileItem.textContent = file.name;
+                    fileItem.dataset.index = i;
+                    fileList.appendChild(fileItem);
+                    
+                    // クリックイベントの追加
+                    fileItem.addEventListener('click', function() {
+                        const index = parseInt(this.dataset.index);
+                        selectAndPlayAudio(index);
+                    });
+                    
+                    // ファイル情報を保存
+                    audioFiles.push({
+                        name: file.name,
+                        file: file
+                    });
+                    
+                    // ファイルをバッファに変換
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        audioBuffers[i] = audioBuffer;
+                        
+                        // 最初のファイルが読み込まれたらUIを更新
+                        if (i === 0 && currentAudioIndex === -1) {
+                            currentAudioIndex = 0;
+                            currentAudioDisplay.textContent = file.name;
+                            highlightSelectedFile(0);
+                        }
+                    } catch (error) {
+                        console.error("Error decoding audio data:", error);
+                    }
+                }
+            }
+        });
+        
+        // 選択されたファイルをハイライト
+        function highlightSelectedFile(index) {
+            const items = fileList.querySelectorAll('.file-item');
+            items.forEach((item, i) => {
+                if (parseInt(item.dataset.index) === index) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+        
+        // 指定したインデックスの音声ファイルを選択して再生
+        function selectAndPlayAudio(index) {
+            if (index < 0 || index >= audioBuffers.length || !audioBuffers[index]) return;
+            
+            currentAudioIndex = index;
+            highlightSelectedFile(index);
+            
+            if (isAudioPlaying) {
+                playAudio(index);
+            } else {
+                currentAudioDisplay.textContent = audioFiles[index].name;
+            }
+        }
+        
+        // 指定したインデックスの音声ファイルを再生
+        function playAudio(index) {
+            if (!audioBuffers[index]) return;
+            
+            if (audioSource) {
+                audioSource.stop();
+            }
+            
+            // オーディオコンテキストが停止していたら再開
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            // 音声ソースの設定
+            audioSource = audioContext.createBufferSource();
+            audioSource.buffer = audioBuffers[index];
+            audioSource.loop = true;
+            
+            // ゲインノードの設定
+            audioGainNode = audioContext.createGain();
+            audioGainNode.gain.value = audioVolume;
+            
+            // 接続
+            audioSource.connect(audioGainNode);
+            audioGainNode.connect(audioContext.destination);
+            
+            // 再生
+            audioSource.start();
+            isAudioPlaying = true;
+            playPauseBtn.textContent = "STOP";
+            playPauseBtn.classList.add("active");
+            
+            // UI更新
+            currentAudioDisplay.textContent = audioFiles[index].name;
+            highlightSelectedFile(index);
+        }
+        
+        // 次のオーディオに切り替え
+        function switchToNextAudio() {
+            if (audioBuffers.length === 0) return;
+            
+            const nextIndex = (currentAudioIndex + 1) % audioBuffers.length;
+            selectAndPlayAudio(nextIndex);
+        }
+        
+        // リズムマシンのスケジューラ
+        function scheduler() {
+            while (nextNoteTime < audioContext.currentTime + 0.1) {
+                scheduleBeat(nextNoteTime);
+                nextNote();
+            }
+            timerID = window.setTimeout(scheduler, 25);
+        }
+        
+        // 次の拍を計算
+        function nextNote() {
+            // 次の拍の時間を計算（60秒 / BPM = 1拍の秒数）
+            const secondsPerBeat = 60.0 / bpm;
+            nextNoteTime += secondsPerBeat;
+            
+            // 現在の拍を更新（0-3）
+            currentBeat = (currentBeat + 1) % 4;
+        }
+        
+        // 拍のスケジュール
+        function scheduleBeat(time) {
+            // ビープ音を作成
+            const osc = audioContext.createOscillator();
+            const oscGain = audioContext.createGain();
+            
+            osc.frequency.value = currentBeat === 0 ? 880 : 440; // 第1拍は高い音
+            oscGain.gain.value = volume;
+            
+            osc.connect(oscGain);
+            oscGain.connect(audioContext.destination);
+            
+            osc.start(time);
+            osc.stop(time + 0.05);
+            
+            // UIを更新
+            updateBeatDisplay(currentBeat);
+        }
+        
+        // ビート表示の更新
+        function updateBeatDisplay(beatIndex) {
+            // 少し遅延させて視覚的な更新をする（オーディオとの同期のため）
+            setTimeout(() => {
+                beats.forEach((beat, index) => {
+                    if (index === beatIndex) {
+                        beat.classList.add("active");
+                    } else {
+                        beat.classList.remove("active");
+                    }
+                });
+            }, 0);
+        }
+        
+        // リズムマシンの開始/停止
+        function togglePlay() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            if (isPlaying) {
+                // 停止
+                window.clearTimeout(timerID);
+                startStopBtn.textContent = "START";
+                startStopBtn.classList.remove("active");
+                isPlaying = false;
+                
+                // ビート表示をクリア
+                beats.forEach(beat => beat.classList.remove("active"));
+            } else {
+                // 開始
+                currentBeat = 0;
+                nextNoteTime = audioContext.currentTime;
+                scheduler();
+                startStopBtn.textContent = "STOP";
+                startStopBtn.classList.add("active");
+                isPlaying = true;
+            }
+        }
+        
+        // 初期化
+        function init() {
+            // リズムマシンのイベントリスナー
+            startStopBtn.addEventListener('click', togglePlay);
+            
+            bpmSlider.addEventListener('input', () => {
+                bpm = parseInt(bpmSlider.value);
+                bpmValue.textContent = bpm;
+            });
+            
+            volumeSlider.addEventListener('input', () => {
+                volume = parseFloat(volumeSlider.value);
+                volumeValue.textContent = volume.toFixed(1);
+            });
+            
+            // オーディオプレーヤーのイベントリスナー
+            playPauseBtn.addEventListener('click', () => {
+                if (audioBuffers.length === 0 || currentAudioIndex === -1) {
+                    alert("再生するファイルがありません。MP3ファイルをアップロードしてください。");
+                    return;
+                }
+                
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                if (isAudioPlaying) {
+                    if (audioSource) {
+                        audioSource.stop();
+                        audioSource = null;
+                    }
+                    isAudioPlaying = false;
+                    playPauseBtn.textContent = "PLAY";
+                    playPauseBtn.classList.remove("active");
+                } else {
+                    playAudio(currentAudioIndex);
+                }
+            });
+            
+            audioVolumeSlider.addEventListener('input', () => {
+                audioVolume = parseFloat(audioVolumeSlider.value);
+                audioVolumeValue.textContent = audioVolume.toFixed(1);
+                if (audioGainNode) {
+                    audioGainNode.gain.value = audioVolume;
+                }
+            });
+            
+            // スペースキーでオーディオを切り替え
+            document.addEventListener('keydown', (event) => {
+                if (event.code === 'Space') {
+                    event.preventDefault(); // ページスクロール防止
+                    switchToNextAudio();
+                }
+            });
+        }
+        
+        // DOMの準備ができたら初期化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
