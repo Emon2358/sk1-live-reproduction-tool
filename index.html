@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sk1 live reproduction tool</title>
+    <title>sk1-live-reproduction-tool</title>
     <style>
         body {
             font-family: 'Courier New', monospace;
@@ -103,21 +103,14 @@
             margin: 10px 0;
             padding: 0;
             list-style-type: none;
-            max-height: 150px;
-            overflow-y: auto;
-            border: 1px solid #555555;
         }
         
         .file-item {
             padding: 5px;
-            margin: 0;
+            margin: 2px 0;
             background-color: #444444;
-            border-bottom: 1px solid #555555;
+            border: 1px solid #666666;
             cursor: pointer;
-        }
-        
-        .file-item:hover {
-            background-color: #555555;
         }
         
         .file-item.selected {
@@ -167,26 +160,10 @@
             padding: 0 5px;
             font-weight: bold;
         }
-        
-        .loading-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: #ff9900;
-            margin-left: 5px;
-            animation: blink 1s infinite;
-        }
-        
-        @keyframes blink {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-        }
     </style>
 </head>
 <body>
-    <h1>sk1 live reproduction tool</h1>
+    <h1>sk1-live-reproduction-tool</h1>
     
     <div class="container">
         <fieldset>
@@ -231,8 +208,6 @@
             
             <div class="controls">
                 <button id="play-pause">PLAY</button>
-                <button id="next-track">NEXT</button>
-                <button id="prev-track">PREV</button>
                 <div class="volume-control">
                     <label for="audio-volume">VOL:</label>
                     <input type="range" id="audio-volume" min="0" max="1" step="0.1" value="0.7">
@@ -242,15 +217,14 @@
             
             <div class="status-bar">
                 現在の曲: <span id="current-audio">なし</span>
-                <span id="loading-indicator" class="loading-indicator" style="display: none;"></span>
             </div>
         </fieldset>
     </div>
     
     <div class="instructions">
         <h3>使用方法</h3>
-        <p>1. 「ファイルを選択」からMP3ファイルを複数選択</p>
-        <p>2. リストからファイルをクリック、[NEXT]/[PREV]ボタンまたは[SPACE]キーで切替</p>
+        <p>1. 「ファイルを選択」からMP3ファイルをアップロード</p>
+        <p>2. リストからファイルを選択、または[SPACE]キーで切替</p>
         <p>3. BPMスライダーでテンポ調整（60-200 BPM）</p>
         <p>4. [START]ボタンでリズムマシン開始・停止</p>
         <p>※音声はプリロードされるので切替時のラグなし</p>
@@ -277,7 +251,6 @@
         let audioGainNode = null;
         let isAudioPlaying = false;
         let audioVolume = 0.7;
-        let loadingCount = 0;
         
         // UI要素の取得
         const startStopBtn = document.getElementById('start-stop');
@@ -287,15 +260,12 @@
         const volumeValue = document.getElementById('volume-value');
         const beats = document.querySelectorAll('.beat');
         const playPauseBtn = document.getElementById('play-pause');
-        const nextTrackBtn = document.getElementById('next-track');
-        const prevTrackBtn = document.getElementById('prev-track');
         const audioVolumeSlider = document.getElementById('audio-volume');
         const audioVolumeValue = document.getElementById('audio-volume-value');
         const currentAudioDisplay = document.getElementById('current-audio');
         const fileUpload = document.getElementById('file-upload');
         const fileList = document.getElementById('file-list');
         const fileCount = document.getElementById('file-count');
-        const loadingIndicator = document.getElementById('loading-indicator');
         
         // ファイルアップロードの処理
         fileUpload.addEventListener('change', async function(event) {
@@ -305,7 +275,6 @@
             // UIの更新
             fileCount.textContent = files.length;
             fileList.innerHTML = '';
-            loadingIndicator.style.display = 'inline-block';
             
             // ファイル配列とバッファをリセット
             audioFiles = [];
@@ -313,16 +282,13 @@
             currentAudioIndex = -1;
             currentAudioDisplay.textContent = "読み込み中...";
             
-            // ロード中のファイル数をトラック
-            loadingCount = files.length;
-            
             // 各ファイルを処理
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (file.type.includes('audio')) {
                     const fileItem = document.createElement('li');
                     fileItem.className = 'file-item';
-                    fileItem.textContent = `${i+1}. ${file.name}`;
+                    fileItem.textContent = file.name;
                     fileItem.dataset.index = i;
                     fileList.appendChild(fileItem);
                     
@@ -341,38 +307,17 @@
                     // ファイルをバッファに変換
                     try {
                         const arrayBuffer = await file.arrayBuffer();
-                        audioContext.decodeAudioData(arrayBuffer).then(audioBuffer => {
-                            audioBuffers[i] = audioBuffer;
-                            loadingCount--;
-                            
-                            // すべてのファイルが読み込まれたらUIを更新
-                            if (loadingCount === 0) {
-                                loadingIndicator.style.display = 'none';
-                                
-                                if (currentAudioIndex === -1) {
-                                    currentAudioIndex = 0;
-                                    currentAudioDisplay.textContent = audioFiles[0].name;
-                                    highlightSelectedFile(0);
-                                }
-                            }
-                            
-                            // 最初のファイルが読み込まれたらUIを更新
-                            if (i === 0 && currentAudioIndex === -1) {
-                                currentAudioIndex = 0;
-                                currentAudioDisplay.textContent = file.name;
-                                highlightSelectedFile(0);
-                            }
-                        }).catch(error => {
-                            console.error("Error decoding audio data:", error);
-                            loadingCount--;
-                            
-                            // エラーメッセージをUIに表示
-                            fileItem.textContent += " [読み込みエラー]";
-                            fileItem.style.color = "#ff6666";
-                        });
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        audioBuffers[i] = audioBuffer;
+                        
+                        // 最初のファイルが読み込まれたらUIを更新
+                        if (i === 0 && currentAudioIndex === -1) {
+                            currentAudioIndex = 0;
+                            currentAudioDisplay.textContent = file.name;
+                            highlightSelectedFile(0);
+                        }
                     } catch (error) {
-                        console.error("Error loading audio file:", error);
-                        loadingCount--;
+                        console.error("Error decoding audio data:", error);
                     }
                 }
             }
@@ -442,19 +387,11 @@
         }
         
         // 次のオーディオに切り替え
-        function nextAudio() {
+        function switchToNextAudio() {
             if (audioBuffers.length === 0) return;
             
             const nextIndex = (currentAudioIndex + 1) % audioBuffers.length;
             selectAndPlayAudio(nextIndex);
-        }
-        
-        // 前のオーディオに切り替え
-        function prevAudio() {
-            if (audioBuffers.length === 0) return;
-            
-            const prevIndex = (currentAudioIndex - 1 + audioBuffers.length) % audioBuffers.length;
-            selectAndPlayAudio(prevIndex);
         }
         
         // リズムマシンのスケジューラ
@@ -535,30 +472,6 @@
             }
         }
         
-        // オーディオ再生の開始/停止
-        function toggleAudioPlay() {
-            if (audioBuffers.length === 0 || currentAudioIndex === -1) {
-                alert("再生するファイルがありません。MP3ファイルをアップロードしてください。");
-                return;
-            }
-            
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            
-            if (isAudioPlaying) {
-                if (audioSource) {
-                    audioSource.stop();
-                    audioSource = null;
-                }
-                isAudioPlaying = false;
-                playPauseBtn.textContent = "PLAY";
-                playPauseBtn.classList.remove("active");
-            } else {
-                playAudio(currentAudioIndex);
-            }
-        }
-        
         // 初期化
         function init() {
             // リズムマシンのイベントリスナー
@@ -575,11 +488,28 @@
             });
             
             // オーディオプレーヤーのイベントリスナー
-            playPauseBtn.addEventListener('click', toggleAudioPlay);
-            
-            nextTrackBtn.addEventListener('click', nextAudio);
-            
-            prevTrackBtn.addEventListener('click', prevAudio);
+            playPauseBtn.addEventListener('click', () => {
+                if (audioBuffers.length === 0 || currentAudioIndex === -1) {
+                    alert("再生するファイルがありません。MP3ファイルをアップロードしてください。");
+                    return;
+                }
+                
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                if (isAudioPlaying) {
+                    if (audioSource) {
+                        audioSource.stop();
+                        audioSource = null;
+                    }
+                    isAudioPlaying = false;
+                    playPauseBtn.textContent = "PLAY";
+                    playPauseBtn.classList.remove("active");
+                } else {
+                    playAudio(currentAudioIndex);
+                }
+            });
             
             audioVolumeSlider.addEventListener('input', () => {
                 audioVolume = parseFloat(audioVolumeSlider.value);
@@ -593,7 +523,7 @@
             document.addEventListener('keydown', (event) => {
                 if (event.code === 'Space') {
                     event.preventDefault(); // ページスクロール防止
-                    nextAudio();
+                    switchToNextAudio();
                 }
             });
         }
